@@ -1,0 +1,39 @@
+.
+├── firebase.json
+├── firestore.indexes.json
+├── firestore.rules
+├── frontend
+│   ├── README.md
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   ├── favicon.ico
+│   │   ├── firebase.js
+│   │   ├── index.html
+│   │   ├── logo192.png
+│   │   ├── logo512.png
+│   │   ├── manifest.json
+│   │   └── robots.txt
+│   └── src
+│       ├── App.css
+│       ├── App.js
+│       ├── App.test.js
+│       ├── index.css
+│       ├── index.js
+│       ├── logo.svg
+│       ├── reportWebVitals.js
+│       └── setupTests.js
+├── functions
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── src
+│   │   ├── genkit-sample.ts
+│   │   └── index.ts
+│   ├── tsconfig.dev.json
+│   └── tsconfig.json
+├── package-lock.json
+├── package.json
+├── project-structure.txt
+└── storage.rules
+
+7 directories, 33 files
