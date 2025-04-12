@@ -62,6 +62,7 @@
     // 將兩個 audio buffer 合併
     async function combineAudio(ttsUrl, backgroundUrl) {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      await audioCtx.resume(); // ✅ 確保在點擊事件中解鎖 audio context
 
       const [ttsBuffer, bgBuffer] = await Promise.all([
         fetch(ttsUrl).then(res => res.arrayBuffer()).then(buf => audioCtx.decodeAudioData(buf)),
