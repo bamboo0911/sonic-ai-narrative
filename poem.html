@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社區走讀應用 - 生成文章</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- 載入 Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="container">
+    <section id="poemSection" class="active">
+      <div class="content-wrapper">
+        <h2>創作文章</h2>
+        <label for="poemTitle">詩歌標題 (選填)</label>
+        <input type="text" id="poemTitle" placeholder="您的創作標題">
+        <label for="imageUpload">上傳圖片</label>
+        <input type="file" id="imageUpload" accept="image/*">
+        <img id="imagePreview" class="hidden" alt="圖片預覽">
+        <label for="textPrompt">文字描述</label>
+        <textarea id="textPrompt" rows="4" placeholder="描述您的靈感與感受"></textarea>
+        <button id="generatePoemButton">生成文章</button>
+        <div id="poemMessage" class="status-message"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // 檢查使用者資料，若無則返回 index.html
+    let anonUser = JSON.parse(localStorage.getItem("anonUser"));
+    if (!anonUser) { window.location.href = "index.html"; }
+
+    // Supabase 設定
+    const SUPABASE_URL = 'https://lnxxypzifwijajlcvxit.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxueHh5cHppZndpamFqbGN2eGl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzNTI1OTQsImV4cCI6MjA1OTkyODU5NH0.8tIEY03lHrZuDKtGMr7Vs1gvvW0ELbftcOGfhVTh-uU';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const poemMessage = document.getElementById('poemMessage');
+    const generatePoemButton = document.getElementById('generatePoemButton');
+    const poemResult = document.getElementById('poemResult');
+    const imagePreview = document.getElementById('imagePreview');
+
+    function updateMessage(el, msg, type = 'info') {
+      el.textContent = msg;
+      el.className = 'status-message status-' + type;
+    }
+    function logError(error) { console.error('Error: ', error); }
+
+    // 圖片預覽
+    document.getElementById('imageUpload').addEventListener('change', function(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          imagePreview.src = e.target.result;
+          imagePreview.classList.remove('hidden');
+        };
+        reader.onerror = function(e) { logError('Image preview error: ' + e); };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // 上傳圖片函式
+    async function uploadImage(file) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = Date.now() + '_' + Math.random().toString(36).substring(2,15) + '.' + fileExt;
+      const filePath = fileName;
+      try {
+        const { data, error } = await supabaseClient.storage.from('community-images')
+          .upload(filePath, file, { cacheControl: '3600', upsert: false });
+        if (error || !data) { throw error || new Error('上傳失敗，無資料返回'); }
+        const { data: urlData } = supabaseClient.storage.from('community-images').getPublicUrl(filePath);
+        return urlData.publicUrl;
+      } catch (error) {
+        logError(error);
+        throw error;
+      }
+    }
+
+    // 生成詩歌後存入 localStorage，再轉跳至 tts.html
+    generatePoemButton.addEventListener('click', async function() {
+      const imageFile = document.getElementById('imageUpload').files[0];
+      const textPrompt = document.getElementById('textPrompt').value.trim();
+      const poemStyle = 'default';
+      const poemTitle = document.getElementById('poemTitle').value.trim() || null;
+
+      if (!imageFile || !textPrompt) {
+        updateMessage(poemMessage, '請上傳圖片並輸入文字描述', 'error');
+        return;
+      }
+      if (!anonUser || !anonUser.id) {
+        updateMessage(poemMessage, '請先進入平台', 'error');
+        return;
+      }
+      generatePoemButton.disabled = true;
+      updateMessage(poemMessage, '生成中，請稍候...', 'info');
+
+      try {
+        const imageUrl = await uploadImage(imageFile);
+        console.log("🔄 呼叫 Edge Function generate-poem", {
+          imageUrl,
+          textPrompt,
+          style: poemStyle,
+          title: poemTitle,
+          userId: anonUser.id
+        });
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-poem`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            imageUrl,
+            textPrompt,
+            style: poemStyle,
+            title: poemTitle,
+            userId: anonUser.id
+          })
+        });
+        if (!response.ok) {
+          let errorText = '生成失敗';
+          try {
+            const errorData = await response.json();
+            errorText = errorData.error || JSON.stringify(errorData);
+          } catch (e) {
+            errorText = '無法解析錯誤訊息';
+          }
+          console.error("❌ 詩歌生成 API 錯誤", errorText);
+          throw new Error(errorText);
+        }
+        const poemResponse = await response.json();
+        // 儲存詩歌結果（包括生成 ID，若有）
+        localStorage.setItem("poemResult", JSON.stringify({
+          poem: poemResponse.poem,
+          creation_id: poemResponse.creation_id
+        }));
+        updateMessage(poemMessage, '詩歌生成成功！', 'success');
+      } catch (functionError) {
+        logError(functionError);
+        console.warn("⚠️ 使用 fallback 模擬詩歌生成");
+        // fallback 模擬生成
+        const poemResponse = {
+          poem: '這是一首模擬詩\n基於您的描述：' + textPrompt + '\n\n清風拂面\n山川環繞\n心隨景動\n意隨夢流',
+          title: poemTitle || '模擬詩'
+        };
+        localStorage.setItem("poemResult", JSON.stringify({
+          poem: poemResponse.poem,
+          creation_id: null
+        }));
+        updateMessage(poemMessage, '提示：使用了模擬詩歌生成', 'info');
+      }
+      finally {
+        generatePoemButton.disabled = false;
+        // 無論成功或 fallback，延遲後直接跳轉到 tts.html
+        setTimeout(() => {
+          window.location.href = "tts.html";
+        }, 800);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+:root {
+    --primary-color: #222;
+    --secondary-color: #444;
+    --accent-color: #00529b;
+    --success-color: #27632a;
+    --error-color: #d8000c;
+    --bg-color: #fff;
+    --section-bg: #f7f7f7;
+    --font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang TC", "Noto Sans TC", sans-serif;
+    --transition-duration: 0.5s;
+  }
+  
+  /* 統一 box-sizing */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    font-family: var(--font-family);
+    color: var(--primary-color);
+  }
+  
+  .container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+  }
+  
+  /* 每個 section 佔滿全螢幕 */
+  section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 5%;
+  }
+  
+  .content-wrapper {
+    width: 100%;
+    max-width: 360px;
+    text-align: center;
+  }
+  
+  h1, h2 {
+    margin-bottom: 20px;
+  }
+  
+  h1 {
+    font-size: 2.5em;
+    font-weight: 300;
+    color: var(--primary-color);
+  }
+  
+  h2 {
+    font-size: 1.8em;
+    color: var(--secondary-color);
+  }
+  
+  .subtitle {
+    font-size: 1em;
+    color: var(--secondary-color);
+    margin-bottom: 30px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1em;
+    text-align: left;
+    color: var(--secondary-color);
+  }
+  
+  input[type="text"],
+  input[type="file"],
+  textarea,
+  select {
+    width: 100%;
+    padding: 12px;
+    font-size: 1em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+  
+  input:focus,
+  textarea:focus,
+  select:focus {
+    border-color: var(--accent-color);
+  }
+  
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 1em;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--primary-color);
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 10px;
+  }
+  
+  button:hover {
+    background-color: var(--secondary-color);
+  }
+  
+  .status-message {
+    font-size: 0.9em;
+    margin-top: 10px;
+  }
+  
+  .status-error { color: var(--error-color); }
+  .status-success { color: var(--success-color); }
+  .status-info { color: var(--accent-color); }
+  
+  .result {
+    width: 100%;
+    background-color: #fff;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+    white-space: pre-wrap;
+    text-align: left;
+    margin-top: 10px;
+  }
+  
+  #imagePreview {
+    width: 100%;
+    max-height: 250px;
+    margin-top: 10px;
+    border-radius: 4px;
+    object-fit: contain;
+  }
+  
+  /* 平板或桌面版調整 */
+  @media (min-width: 600px) {
+    .content-wrapper {
+      max-width: 500px;
+    }
+    h1 {
+      font-size: 3em;
+    }
+    h2 {
+      font-size: 2em;
+    }
+    button {
+      width: 50%;
+    }
+  }

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社區走讀應用 - 進入平台</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- 載入 Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="container">
+    <section id="authSection" class="active">
+      <div class="content-wrapper">
+        <h1>社區走讀應用</h1>
+        <p class="subtitle">體驗創意與藝術的數位交流平台</p>
+        <h2>開始使用</h2>
+        <label for="anonName">您的名稱</label>
+        <input type="text" id="anonName" placeholder="請輸入暱稱">
+        <button id="anonymousSignupButton">進入平台</button>
+        <div id="authMessage" class="status-message"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Supabase 設定（請確認金鑰正確）
+    const SUPABASE_URL = 'https://lnxxypzifwijajlcvxit.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxueHh5cHppZndpamFqbGN2eGl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzNTI1OTQsImV4cCI6MjA1OTkyODU5NH0.8tIEY03lHrZuDKtGMr7Vs1gvvW0ELbftcOGfhVTh-uU';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const authMessage = document.getElementById('authMessage');
+    const anonymousSignupButton = document.getElementById('anonymousSignupButton');
+
+    // 更新訊息函式
+    function updateMessage(el, msg, type = 'info') {
+      el.textContent = msg;
+      el.className = 'status-message status-' + type;
+    }
+
+    // 當使用者按下「進入平台」時
+    anonymousSignupButton.addEventListener('click', async function() {
+      const name = document.getElementById('anonName').value.trim();
+      if (!name) {
+        updateMessage(authMessage, '請輸入您的暱稱', 'error');
+        return;
+      }
+      this.disabled = true;
+      updateMessage(authMessage, '正在進入平台...', 'info');
+
+      try {
+        const params = { _user_input: name, _display_name: name };
+        const { data, error } = await supabaseClient.rpc('create_anonymous_user', params);
+        if (error || !data) {
+          updateMessage(authMessage, '建立使用者出錯：' + (error ? error.message : '無資料返回'), 'error');
+          this.disabled = false;
+          return;
+        }
+        // 儲存使用者資料至 localStorage
+        localStorage.setItem("anonUser", JSON.stringify(data));
+        updateMessage(authMessage, '歡迎，' + data.username, 'success');
+        // 延遲後轉跳至詩歌生成頁面
+        setTimeout(() => { window.location.href = "poem.html"; }, 800);
+      } catch (err) {
+        console.error(err);
+        updateMessage(authMessage, '進入平台失敗：' + err.message, 'error');
+        this.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
