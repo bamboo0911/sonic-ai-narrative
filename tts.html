@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>社區走讀應用 - 語音朗讀</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- 載入 Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="container">
+    <section id="ttsSection" class="active">
+      <div class="content-wrapper">
+        <h2>語音朗讀</h2>
+        <label for="ttsText">朗讀文字</label>
+        <textarea id="ttsText" rows="4" placeholder="將顯示詩歌內容"></textarea>
+        <label for="voiceType">語音風格</label>
+        <select id="voiceType">
+          <option value="alloy">Alloy</option>
+          <option value="echo">Echo</option>
+          <option value="fable">Fable</option>
+          <option value="onyx">Onyx</option>
+          <option value="nova">Nova</option>
+          <option value="shimmer">Shimmer</option>
+        </select>
+        <button id="generateTtsButton">生成語音</button>
+        <div id="ttsMessage" class="status-message"></div>
+        <div id="audioPlayer" class="hidden">
+          <audio controls id="audioElement"></audio>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // 從 localStorage 取得詩歌結果，若無則返回 poem.html
+    let poemResult = JSON.parse(localStorage.getItem("poemResult"));
+    if (!poemResult || !poemResult.poem) {
+      window.location.href = "poem.html";
+    }
+    // 將詩歌結果自動填入朗讀文字框
+    document.getElementById('ttsText').value = poemResult.poem;
+
+    // Supabase 設定
+    const SUPABASE_URL = 'https://lnxxypzifwijajlcvxit.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxueHh5cHppZndpamFqbGN2eGl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzNTI1OTQsImV4cCI6MjA1OTkyODU5NH0.8tIEY03lHrZuDKtGMr7Vs1gvvW0ELbftcOGfhVTh-uU';
+    const { createClient } = supabase;
+    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const ttsMessage = document.getElementById('ttsMessage');
+    const generateTtsButton = document.getElementById('generateTtsButton');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const audioElement = document.getElementById('audioElement');
+
+    function updateMessage(el, msg, type = 'info') {
+      el.textContent = msg;
+      el.className = 'status-message status-' + type;
+    }
+    function logError(error) { console.error('Error: ', error); }
+
+    // 將兩個 audio buffer 合併
+    async function combineAudio(ttsUrl, backgroundUrl) {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const [ttsBuffer, bgBuffer] = await Promise.all([
+        fetch(ttsUrl).then(res => res.arrayBuffer()).then(buf => audioCtx.decodeAudioData(buf)),
+        fetch(backgroundUrl).then(res => res.arrayBuffer()).then(buf => audioCtx.decodeAudioData(buf))
+      ]);
+
+      const duration = Math.min(ttsBuffer.duration, bgBuffer.duration);
+      const offset = Math.random() * (bgBuffer.duration - duration);
+
+      const output = audioCtx.createBuffer(1, audioCtx.sampleRate * duration, audioCtx.sampleRate);
+      const outputData = output.getChannelData(0);
+      const ttsData = ttsBuffer.getChannelData(0);
+      const bgData = bgBuffer.getChannelData(0);
+
+      for (let i = 0; i < output.length; i++) {
+        const t = i;
+        const bgIndex = Math.floor((offset * audioCtx.sampleRate) + i);
+        outputData[i] = (ttsData[i] || 0) + (bgData[bgIndex] || 0) * 0.2;
+      }
+
+      const mergedBlob = await new Promise(resolve => {
+        const dest = audioCtx.createMediaStreamDestination();
+        const source = audioCtx.createBufferSource();
+        source.buffer = output;
+        source.connect(dest);
+        source.start();
+
+        const recorder = new MediaRecorder(dest.stream);
+        const chunks = [];
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => resolve(new Blob(chunks));
+        recorder.start();
+
+        setTimeout(() => recorder.stop(), duration * 1000);
+      });
+
+      return URL.createObjectURL(mergedBlob);
+    }
+
+    // 生成語音
+    generateTtsButton.addEventListener('click', async function() {
+      const text = document.getElementById('ttsText').value.trim();
+      const voice = document.getElementById('voiceType').value;
+
+      if (!text) {
+        updateMessage(ttsMessage, '請輸入要朗讀的文字', 'error');
+        return;
+      }
+
+      if (!poemResult.creation_id) {
+        updateMessage(ttsMessage, '⚠️ 尚未有有效的創作 ID，請先成功生成詩歌', 'error');
+        return;
+      }
+
+      this.disabled = true;
+      updateMessage(ttsMessage, '正在生成語音...', 'info');
+
+      try {
+        const response = await fetch(SUPABASE_URL + '/functions/v1/text-to-speech', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+          },
+          body: JSON.stringify({ text, voice, creationId: poemResult.creation_id, userId: null })
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || '生成語音失敗');
+        }
+        const data = await response.json();
+        const combinedUrl = await combineAudio(data.url, 'test.mp3');
+        audioElement.src = combinedUrl;
+        audioPlayer.classList.remove('hidden');
+        updateMessage(ttsMessage, '語音生成與混音成功！', 'success');
+      } catch (error) {
+        logError(error);
+        updateMessage(ttsMessage, '生成語音失敗：' + error.message, 'error');
+      } finally {
+        this.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
